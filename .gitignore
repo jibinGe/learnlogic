@@ -1,0 +1,7 @@
+/venv
+/imp
+.env
+/app/utils/.env
+.env
+*.env
+*.sql
