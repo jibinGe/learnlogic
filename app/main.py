@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from .routers import (users, testimonials, resources, themes, 
                       events, cart, purchases, billing, interest, 
-                      email, stripe, password_reset, contact_form, admin)
+                      email, stripe, password_reset, contact_form, admin, tutors)
 from . import models, schemas, auth
 from .database import engine, get_db
 from fastapi.middleware.cors import CORSMiddleware
@@ -87,6 +87,7 @@ app.include_router(stripe.router)
 app.include_router(password_reset.router)
 app.include_router(contact_form.router)
 app.include_router(admin.router)
+app.include_router(tutors.router)
 # Add a test root endpoint
 @app.get("/")
 def read_root():

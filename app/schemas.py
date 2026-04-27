@@ -608,3 +608,82 @@ class ContactForm(ContactFormBase):
         from_attributes = True
 
 
+# ─────────────────────────────────────────────────────────────────
+# Tutor schemas
+# ─────────────────────────────────────────────────────────────────
+
+class TutorRegister(BaseModel):
+    """Payload sent by TutorRegistrationForm.jsx on POST /tutors/register"""
+    # Account fields
+    firstName: str
+    lastName: str
+    email: EmailStr
+    password: str
+    confirmPassword: str
+    mobileNumber: str
+
+    # Teaching profile fields
+    subjects: List[str]
+    examBoards: List[str]
+    qualifications: List[str]
+    languages: List[str]
+    teachingMethod: str
+    yearsOfExperience: str
+    country: str
+    city: str
+    pricePerHour: float
+    aboutMe: str
+
+    # Front-end only (ignored server-side but allowed to arrive)
+    acceptTerms: Optional[bool] = None
+    user_type: Optional[str] = None
+    full_name: Optional[str] = None
+    avatarUrl: Optional[str] = None
+
+
+class TutorProfileUpdate(BaseModel):
+    """All fields optional — used by PUT /tutors/{id}"""
+    mobileNumber: Optional[str] = None
+    country: Optional[str] = None
+    city: Optional[str] = None
+    subjects: Optional[List[str]] = None
+    examBoards: Optional[List[str]] = None
+    qualifications: Optional[List[str]] = None
+    languages: Optional[List[str]] = None
+    teachingMethod: Optional[str] = None
+    yearsOfExperience: Optional[str] = None
+    pricePerHour: Optional[float] = None
+    aboutMe: Optional[str] = None
+    avatarUrl: Optional[str] = None
+
+
+class TutorProfileResponse(BaseModel):
+    """Public-facing tutor profile returned by GET /tutors/"""
+    id: int
+    user_id: int
+    full_name: str
+    email: str
+    mobile_number: str
+    country: str
+    city: str
+    subjects: List[str]
+    exam_boards: List[str]
+    qualifications: List[str]
+    languages: List[str]
+    teaching_method: str
+    years_of_experience: str
+    price_per_hour: float
+    about_me: str
+    avatar_url: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class PaginatedTutorResponse(BaseModel):
+    items: List[TutorProfileResponse]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int

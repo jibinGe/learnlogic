@@ -10,6 +10,18 @@ import json
 class UserType(str, enum.Enum):
     ADMIN = "admin"
     TEACHER = "teacher"
+    TUTOR = "tutor"
+
+class StringList(TypeDecorator):
+    impl = String
+    
+    def process_bind_param(self, value, dialect):
+        if value is not None:
+            return json.dumps(value)
+    
+    def process_result_value(self, value, dialect):
+        if value is not None:
+            return json.loads(value)
 
 class User(Base):
     __tablename__ = "users"
@@ -27,6 +39,38 @@ class User(Base):
     stripe_customer_id = Column(String, nullable=True, index=True)
 
     cart_data = relationship("Cart", back_populates="user")
+    tutor_profile = relationship("TutorProfile", back_populates="user", uselist=False)
+
+class TutorProfile(Base):
+    __tablename__ = "tutor_profiles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
+
+    # Contact & location
+    mobile_number = Column(String, nullable=False)
+    country = Column(String, nullable=False)
+    city = Column(String, nullable=False)
+
+    # Teaching profile
+    subjects = Column(StringList, nullable=False, default=list)
+    exam_boards = Column(StringList, nullable=False, default=list)
+    qualifications = Column(StringList, nullable=False, default=list)
+    languages = Column(StringList, nullable=False, default=list)
+    teaching_method = Column(String, nullable=False)          # Online / Face-to-face / Both
+    years_of_experience = Column(String, nullable=False)
+    price_per_hour = Column(Float, nullable=False)
+    about_me = Column(Text, nullable=False)
+
+    # Avatar / profile picture (optional, S3 URL)
+    avatar_url = Column(String, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    user = relationship("User", back_populates="tutor_profile")
+
 
 class Testimonial(Base):
     __tablename__ = "testimonials"
@@ -65,16 +109,7 @@ class Resources(Base):
     themes = relationship("Theme", back_populates="resource")
 
 
-class StringList(TypeDecorator):
-    impl = String
-    
-    def process_bind_param(self, value, dialect):
-        if value is not None:
-            return json.dumps(value)
-    
-    def process_result_value(self, value, dialect):
-        if value is not None:
-            return json.loads(value)
+
 
 class EventStatus(str, enum.Enum):
     ACTIVE = "active"
