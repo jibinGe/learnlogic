@@ -5,9 +5,10 @@ import os
 from ..schemas import EmailRequest, EmailResponse
 import logging
 import os
+from ..config import settings
 
-AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY")
-AWS_SECRET_KEY = os.getenv("AWS_SECRET_KEY")
+AWS_ACCESS_KEY = settings.AWS_ACCESS_KEY_ID
+AWS_SECRET_KEY = settings.AWS_SECRET_ACCESS_KEY
 
 logger = logging.getLogger(__name__)
 
