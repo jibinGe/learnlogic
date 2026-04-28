@@ -164,6 +164,27 @@ def delete_user(user_id: int, db: Session = Depends(get_db),
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
     
+    # Delete dependent records safely via ORM to handle cascades
+    if db_user.user_type == models.UserType.TUTOR:
+        tutor_profile = db.query(models.TutorProfile).filter(models.TutorProfile.user_id == user_id).first()
+        if tutor_profile:
+            db.delete(tutor_profile)
+            
+    # Delete user's cart
+    cart = db.query(models.Cart).filter(models.Cart.user_id == user_id).first()
+    if cart:
+        db.delete(cart)
+        
+    # Delete user's purchases
+    purchases = db.query(models.Purchase).filter(models.Purchase.user_id == user_id).all()
+    for purchase in purchases:
+        db.delete(purchase)
+        
+    # Delete other simple dependent records
+    db.query(models.Testimonial).filter(models.Testimonial.user_id == user_id).delete(synchronize_session=False)
+    db.query(models.Interest).filter(models.Interest.user_id == user_id).delete(synchronize_session=False)
+    db.query(models.PasswordResetToken).filter(models.PasswordResetToken.user_id == user_id).delete(synchronize_session=False)
+
     db.delete(db_user)
     db.commit()
     return {"detail": "User deleted"}

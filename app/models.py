@@ -38,8 +38,8 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     stripe_customer_id = Column(String, nullable=True, index=True)
 
-    cart_data = relationship("Cart", back_populates="user")
-    tutor_profile = relationship("TutorProfile", back_populates="user", uselist=False)
+    cart_data = relationship("Cart", back_populates="user", cascade="all, delete-orphan")
+    tutor_profile = relationship("TutorProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
 
 class TutorProfile(Base):
     __tablename__ = "tutor_profiles"
@@ -56,7 +56,7 @@ class TutorProfile(Base):
     subjects = Column(StringList, nullable=False, default=list)
     exam_boards = Column(StringList, nullable=False, default=list)
     qualifications = Column(StringList, nullable=False, default=list)
-    languages = Column(StringList, nullable=False, default=list)
+    languages = Column(StringList, nullable=True, default=list)
     teaching_method = Column(String, nullable=False)          # Online / Face-to-face / Both
     years_of_experience = Column(String, nullable=False)
     price_per_hour = Column(Float, nullable=False)

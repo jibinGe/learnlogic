@@ -72,7 +72,7 @@ class WorkInDB(WorkBase):
     updated_at: Optional[datetime]
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class TestimonialBase(BaseModel):
     picture_url: str
@@ -256,7 +256,7 @@ class Event(EventBase):
     status: Optional[EventStatus] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 ################## Cart #####################
@@ -271,7 +271,7 @@ class CartResponse(CartBase):
     id: int
     user_id: int
     created_at: datetime
-    updated_at: datetime | None
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -285,7 +285,7 @@ class BillingAddressResponse(BaseModel):
     billing_address: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 #################Interest
 
@@ -626,7 +626,7 @@ class TutorRegister(BaseModel):
     subjects: List[str]
     examBoards: List[str]
     qualifications: List[str]
-    languages: List[str]
+    languages: Optional[List[str]] = []
     teachingMethod: str
     yearsOfExperience: str
     country: str
@@ -669,7 +669,7 @@ class TutorProfileResponse(BaseModel):
     subjects: List[str]
     exam_boards: List[str]
     qualifications: List[str]
-    languages: List[str]
+    languages: Optional[List[str]] = []
     teaching_method: str
     years_of_experience: str
     price_per_hour: float
