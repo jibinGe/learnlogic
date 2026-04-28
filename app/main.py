@@ -32,7 +32,6 @@ async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
-    # form_data.username = form_data.username().strip()
     user = db.query(models.User).filter(models.User.email == form_data.username).first()
 
     # Case 1: Email not registered
@@ -43,7 +42,15 @@ async def login_for_access_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Case 2: Wrong password
+    # Case 2: Tutor accounts must use the tutor login endpoint
+    if user.user_type == models.UserType.TUTOR:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tutor accounts must log in via the tutor login page.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Case 3: Wrong password
     if not auth.verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -58,17 +65,63 @@ async def login_for_access_token(
         expires_delta=access_token_expires
     )
 
-    
+    data = {
+        "access_token": access_token,
+        "user_id": user.id,
+        "token_type": "bearer",
+        "user_type": user.user_type
+    }
+
+    print(data)
+    return data
+
+
+@app.post("/tutor-token", response_model=schemas.Token)
+async def tutor_login_for_access_token(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db)
+):
+    user = db.query(models.User).filter(models.User.email == form_data.username).first()
+
+    # Case 1: Email not registered
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Email address not found. Please try again.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Case 2: Non-tutor accounts are not allowed here
+    if user.user_type != models.UserType.TUTOR:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This login is for tutor accounts only.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Case 3: Wrong password
+    if not auth.verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect password. Please try again.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Generate access token
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = auth.create_access_token(
+        data={"sub": user.email, "user_type": user.user_type},
+        expires_delta=access_token_expires
+    )
 
     data = {
         "access_token": access_token,
         "user_id": user.id,
         "token_type": "bearer",
-        "user_type" : user.user_type
+        "user_type": user.user_type
     }
 
     print(data)
-
     return data
 
 
