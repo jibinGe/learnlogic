@@ -2,10 +2,10 @@
 
 # Configuration
 # SERVER_IP="13.232.143.33"  # Prod
-# SERVER_IP="65.0.193.46"  # Test
-PEM_FILE="/Users/jibin_george/Desktop/learnlogic/imp/learnogic_key.pem"
+SERVER_IP="65.0.193.46"  # Test
+PEM_FILE="/Users/nexonetics/Desktop/Learnogic/LearnogicFullstack/learnlogic/imp/learnogic_key.pem"
 SERVER_APP_DIR="/home/ubuntu/learnogic"  # Path on the server
-LOCAL_APP_DIR="/Users/jibin_george/Desktop/learnlogic"  # Path on your local machine
+LOCAL_APP_DIR="/Users/nexonetics/Desktop/Learnogic/LearnogicFullstack/learnlogic"  # Path on your local machine
 
 # Make sure PEM file has correct permissions
 chmod 400 $PEM_FILE

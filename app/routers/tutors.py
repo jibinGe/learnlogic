@@ -165,6 +165,7 @@ def get_tutor_profile(
         price_per_hour=profile.price_per_hour,
         about_me=profile.about_me,
         avatar_url=profile.avatar_url,
+        is_subscribed=profile.is_subscribed,
         created_at=profile.created_at
     )
     return response
@@ -192,7 +193,8 @@ def update_tutor_profile(
         "yearsOfExperience": "years_of_experience",
         "pricePerHour": "price_per_hour",
         "aboutMe": "about_me",
-        "avatarUrl": "avatar_url"
+        "avatarUrl": "avatar_url",
+        "isSubscribed": "is_subscribed"
     }
     
     for key, value in update_data.items():
@@ -214,7 +216,7 @@ def list_tutors(
     page_size: int = 50,
     db: Session = Depends(get_db)
 ):
-    query = db.query(models.TutorProfile).join(models.User)
+    query = db.query(models.TutorProfile).join(models.User).filter(models.TutorProfile.is_subscribed == True)
     
     total = query.count()
     profiles = query.offset((page - 1) * page_size).limit(page_size).all()
@@ -238,6 +240,7 @@ def list_tutors(
             price_per_hour=p.price_per_hour,
             about_me=p.about_me,
             avatar_url=p.avatar_url,
+            is_subscribed=p.is_subscribed,
             created_at=p.created_at
         ))
         

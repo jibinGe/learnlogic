@@ -655,6 +655,7 @@ class TutorProfileUpdate(BaseModel):
     pricePerHour: Optional[float] = None
     aboutMe: Optional[str] = None
     avatarUrl: Optional[str] = None
+    isSubscribed: Optional[bool] = None
 
 
 class TutorProfileResponse(BaseModel):
@@ -675,6 +676,7 @@ class TutorProfileResponse(BaseModel):
     price_per_hour: float
     about_me: str
     avatar_url: Optional[str] = None
+    is_subscribed: bool = False
     created_at: Optional[datetime] = None
 
     class Config:

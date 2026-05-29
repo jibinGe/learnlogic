@@ -3,13 +3,13 @@
 # Configuration
 # SERVER_IP="13.232.143.33" # Prod server
 SERVER_IP="65.0.193.46" # Dev sever
-PEM_FILE="/Users/jibin_george/Desktop/learnlogic/imp/learnogic_key.pem"
+PEM_FILE="/Users/nexonetics/Desktop/Learnogic/LearnogicFullstack/learnlogic/imp/learnogic_key.pem"
 SERVER_APP_DIR="/home/ubuntu/learnogic"  # Path on the server
-LOCAL_APP_DIR="/Users/jibin_george/Desktop/learnlogic"  # Path on your local machine
+LOCAL_APP_DIR="/Users/nexonetics/Desktop/Learnogic/LearnogicFullstack/learnlogic"  # Path on your local machine
 
 # ssh -i /Users/jibin_george/Desktop/learnlogic/imp/learnogic_key.pem ubuntu@13.205.53.126
 
-scp -i $PEM_FILE ubuntu@$SERVER_IP:${SERVER_APP_DIR}/sql_app.db ${LOCAL_APP_DIR}/
+# scp -i $PEM_FILE ubuntu@$SERVER_IP:${SERVER_APP_DIR}/sql_app.db ${LOCAL_APP_DIR}/
 
 echo "Downloaded from $SERVER_IP"
 # ssh -i /Users/jibin_george/Desktop/learnlogic/imp/learnogic_key.pem ubuntu@13.235.73.80

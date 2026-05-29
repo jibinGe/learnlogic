@@ -58,8 +58,8 @@ class SESService:
                     logger.warning("jibing@nexonetics.com not in verified emails list")
                     
             except Exception as verify_e:
-                logger.error(f"Failed to connect to SES: {verify_e}")
-                raise
+                logger.warning(f"Could not list verified emails during init (might lack permissions): {verify_e}")
+                # Do not raise here; the user might only have ses:SendEmail permissions.
                 
         except Exception as e:
             logger.error(f"Failed to initialize SES client: {str(e)}")
@@ -72,9 +72,12 @@ class SESService:
             logger.info(f"Using SES client in region: {self.ses_client.meta.region_name}")
             
             # Double-check our verified emails before sending
-            verified_response = self.ses_client.list_verified_email_addresses()
-            verified_emails = verified_response.get('VerifiedEmailAddresses', [])
-            logger.info(f"Current verified emails in {self.ses_client.meta.region_name}: {verified_emails}")
+            try:
+                verified_response = self.ses_client.list_verified_email_addresses()
+                verified_emails = verified_response.get('VerifiedEmailAddresses', [])
+                logger.info(f"Current verified emails in {self.ses_client.meta.region_name}: {verified_emails}")
+            except Exception as e:
+                logger.warning(f"Could not double-check verified emails: {e}")
             
             # Prepare the email content
             destination = {
