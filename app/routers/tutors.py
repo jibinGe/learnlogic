@@ -216,7 +216,7 @@ def list_tutors(
     page_size: int = 50,
     db: Session = Depends(get_db)
 ):
-    query = db.query(models.TutorProfile).join(models.User).filter(models.TutorProfile.is_subscribed == True)
+    query = db.query(models.TutorProfile).join(models.User)
     
     total = query.count()
     profiles = query.offset((page - 1) * page_size).limit(page_size).all()

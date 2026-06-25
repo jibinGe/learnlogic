@@ -6,7 +6,7 @@ from decimal import Decimal
 import uuid
 import logging
 
-from app.models import User, Purchase, PurchaseItem
+from app.models import User, Purchase, PurchaseItem, TutorProfile
 from app.config import settings
 from app.core.exceptions import PaymentException, NotFoundException, ValidationException
 
@@ -292,7 +292,7 @@ class StripeService:
             raise PaymentException(f"Payment failed: {str(e)}")
     
     @staticmethod
-    async def handle_webhook_event(event_data: Dict) -> bool:
+    async def handle_webhook_event(event_data: Dict, db: Session = None) -> bool:
         """
         Handle Stripe webhook events
         """
@@ -309,10 +309,128 @@ class StripeService:
                 logger.warning(f"Payment failed for intent {intent['id']}")
                 # Additional failure handling can be added here
                 
+            elif event_type == 'checkout.session.completed':
+                session = event_data['data']['object']
+                if session.get('mode') == 'subscription':
+                    metadata = session.get('metadata', {})
+                    user_id = metadata.get('user_id')
+                    sub_type = metadata.get('type')
+                    if sub_type == 'tutor_subscription' and user_id and db:
+                        logger.info(f"Tutor subscription completed for user {user_id}")
+                        tutor = db.query(TutorProfile).filter(TutorProfile.user_id == int(user_id)).first()
+                        if tutor:
+                            tutor.is_subscribed = True
+                            tutor.stripe_subscription_id = session.get('subscription')
+                            db.commit()
+
+            elif event_type == 'customer.subscription.deleted' or event_type == 'customer.subscription.canceled':
+                subscription = event_data['data']['object']
+                sub_id = subscription.get('id')
+                if db and sub_id:
+                    logger.info(f"Subscription canceled: {sub_id}")
+                    tutor = db.query(TutorProfile).filter(TutorProfile.stripe_subscription_id == sub_id).first()
+                    if tutor:
+                        tutor.is_subscribed = False
+                        tutor.stripe_subscription_id = None
+                        db.commit()
+
             return True
             
         except Exception as e:
             logger.error(f"Error handling webhook: {str(e)}")
+            return False
+
+    @staticmethod
+    async def create_tutor_subscription_checkout(
+        db: Session,
+        user: User,
+        success_url: str,
+        cancel_url: str
+    ) -> str:
+        """
+        Create a Checkout Session for £25/month tutor subscription
+        """
+        try:
+            customer_id = await StripeService.get_or_create_customer(db, user)
+            
+            session = stripe.checkout.Session.create(
+                customer=customer_id,
+                payment_method_types=['card'],
+                line_items=[{
+                    'price_data': {
+                        'currency': 'gbp',
+                        'product_data': {
+                            'name': 'Tutor Subscription (£25/month)',
+                            'description': 'Monthly subscription to appear in the public tutor search.',
+                        },
+                        'unit_amount': 2500, # £25.00
+                        'recurring': {
+                            'interval': 'month',
+                        },
+                    },
+                    'quantity': 1,
+                }],
+                mode='subscription',
+                success_url=success_url,
+                cancel_url=cancel_url,
+                metadata={
+                    'user_id': str(user.id),
+                    'type': 'tutor_subscription'
+                },
+                subscription_data={
+                    'metadata': {
+                        'user_id': str(user.id),
+                        'type': 'tutor_subscription'
+                    }
+                }
+            )
+            return session.url
+        except stripe.error.StripeError as e:
+            logger.error(f"Stripe error creating subscription checkout: {str(e)}")
+            raise PaymentException(f"Failed to create subscription checkout: {str(e)}")
+
+    @staticmethod
+    async def cancel_subscription(subscription_id: str) -> bool:
+        """
+        Cancel an active Stripe subscription
+        """
+        if subscription_id == 'sub_manual':
+            return True
+            
+        try:
+            stripe.Subscription.delete(subscription_id)
+            return True
+        except stripe.error.InvalidRequestError as e:
+            if "No such subscription" in str(e):
+                logger.warning(f"Subscription {subscription_id} already deleted in Stripe.")
+                return True
+            logger.error(f"Stripe invalid request error cancelling subscription: {str(e)}")
+            raise PaymentException(f"Failed to cancel subscription: {str(e)}")
+        except stripe.error.StripeError as e:
+            logger.error(f"Stripe error cancelling subscription: {str(e)}")
+            raise PaymentException(f"Failed to cancel subscription: {str(e)}")
+
+    @staticmethod
+    async def verify_tutor_subscription(db: Session, session_id: str) -> bool:
+        """
+        Manually verify a checkout session and update the DB if the webhook was missed
+        """
+        try:
+            session = stripe.checkout.Session.retrieve(session_id)
+            if session.status == 'complete' and session.mode == 'subscription':
+                metadata = session.get('metadata', {})
+                user_id = metadata.get('user_id')
+                if user_id:
+                    tutor = db.query(TutorProfile).filter(TutorProfile.user_id == int(user_id)).first()
+                    if tutor and not tutor.is_subscribed:
+                        logger.info(f"Manual verification: Tutor subscription completed for user {user_id}")
+                        tutor.is_subscribed = True
+                        tutor.stripe_subscription_id = session.get('subscription')
+                        db.commit()
+                        return True
+            return False
+        except Exception as e:
+            logger.error(f"Error verifying subscription: {str(e)}")
             return False
     
     @staticmethod

@@ -689,3 +689,14 @@ class PaginatedTutorResponse(BaseModel):
     page: int
     page_size: int
     total_pages: int
+
+class TutorSubscriptionCheckoutRequest(BaseModel):
+    success_url: str = Field(..., description="URL to redirect to upon successful checkout")
+    cancel_url: str = Field(..., description="URL to redirect to if checkout is canceled")
+
+class TutorSubscriptionCheckoutResponse(BaseModel):
+    url: str = Field(..., description="Stripe checkout URL to redirect the user to")
+
+class TutorSubscriptionCancelResponse(BaseModel):
+    success: bool
+    message: str

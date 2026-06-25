@@ -9,7 +9,7 @@ import logging
 from app.auth import get_current_user
 
 from app.database import get_db
-from app.models import User
+from app.models import User, TutorProfile
 from app.schemas import (
     CreatePaymentIntentRequest,
     PaymentIntentResponse,
@@ -19,7 +19,10 @@ from app.schemas import (
     PaymentWithSavedMethodRequest,
     StripeWebhookEvent,
     SupportedCurrenciesResponse,
-    CurrencyInfo
+    CurrencyInfo,
+    TutorSubscriptionCheckoutRequest,
+    TutorSubscriptionCheckoutResponse,
+    TutorSubscriptionCancelResponse
 )
 from app.utils.stripe import StripeService
 from app.utils.purchase_service import PurchaseService  # Assuming you have this
@@ -241,7 +244,8 @@ async def get_supported_currencies():
 @router.post("/webhook")
 async def stripe_webhook(
     request: Request,
-    stripe_signature: str = Header(alias="stripe-signature")
+    stripe_signature: str = Header(alias="stripe-signature"),
+    db: Session = Depends(get_db)
 ):
     """
     Handle Stripe webhook events
@@ -262,7 +266,7 @@ async def stripe_webhook(
             raise HTTPException(status_code=400, detail="Invalid signature")
         
         # Handle the event
-        success = await StripeService.handle_webhook_event(event)
+        success = await StripeService.handle_webhook_event(event, db)
         
         if success:
             return {"status": "success"}
@@ -274,3 +278,74 @@ async def stripe_webhook(
     except Exception as e:
         logger.error(f"Unexpected error in webhook: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+@router.post("/tutor-subscription/checkout", response_model=TutorSubscriptionCheckoutResponse)
+async def create_tutor_subscription_checkout(
+    request: TutorSubscriptionCheckoutRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Generate a Stripe Checkout URL for a £25/month Tutor subscription.
+    """
+    if current_user.user_type != "tutor":
+        raise HTTPException(status_code=403, detail="Only tutors can subscribe.")
+        
+    try:
+        url = await StripeService.create_tutor_subscription_checkout(
+            db=db,
+            user=current_user,
+            success_url=request.success_url,
+            cancel_url=request.cancel_url
+        )
+        return TutorSubscriptionCheckoutResponse(url=url)
+    except Exception as e:
+        logger.error(f"Error creating tutor subscription checkout: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/tutor-subscription/cancel", response_model=TutorSubscriptionCancelResponse)
+async def cancel_tutor_subscription(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Cancel an active tutor subscription.
+    """
+    if current_user.user_type != "tutor":
+        raise HTTPException(status_code=403, detail="Only tutors can manage subscriptions.")
+        
+    tutor = db.query(TutorProfile).filter(TutorProfile.user_id == current_user.id).first()
+    if not tutor or not tutor.stripe_subscription_id:
+        raise HTTPException(status_code=400, detail="No active subscription found.")
+        
+    try:
+        await StripeService.cancel_subscription(tutor.stripe_subscription_id)
+        
+        # We can proactively set it here, or wait for webhook. Better to set it here so it's instant.
+        tutor.is_subscribed = False
+        tutor.stripe_subscription_id = None
+        db.commit()
+        
+        return TutorSubscriptionCancelResponse(
+            success=True,
+            message="Subscription cancelled successfully."
+        )
+    except Exception as e:
+        logger.error(f"Error cancelling tutor subscription: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/tutor-subscription/verify")
+async def verify_tutor_subscription(
+    session_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Manually verify a checkout session for fallback syncing when webhooks fail
+    """
+    try:
+        success = await StripeService.verify_tutor_subscription(db, session_id)
+        return {"success": success}
+    except Exception as e:
+        logger.error(f"Error verifying subscription: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
