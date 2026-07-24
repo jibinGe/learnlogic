@@ -348,7 +348,7 @@ class StripeService:
         cancel_url: str
     ) -> str:
         """
-        Create a Checkout Session for £25/month tutor subscription
+        Create a Checkout Session for £19.99/month tutor subscription
         """
         try:
             customer_id = await StripeService.get_or_create_customer(db, user)
@@ -360,10 +360,10 @@ class StripeService:
                     'price_data': {
                         'currency': 'gbp',
                         'product_data': {
-                            'name': 'Tutor Subscription (£25/month)',
+                            'name': 'Upgrade to Prime (£19.99/month)',
                             'description': 'Monthly subscription to appear in the public tutor search.',
                         },
-                        'unit_amount': 2500, # £25.00
+                        'unit_amount': 1999, # £19.99
                         'recurring': {
                             'interval': 'month',
                         },
