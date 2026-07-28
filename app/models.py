@@ -67,6 +67,10 @@ class TutorProfile(Base):
 
     is_subscribed = Column(Boolean, default=False)
     stripe_subscription_id = Column(String, nullable=True)
+    subscribed_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Impression counter — incremented when a visitor views a private (non-subscribed) profile card
+    profile_impressions = Column(Integer, default=0, nullable=False, server_default="0")
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

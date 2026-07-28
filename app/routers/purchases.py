@@ -493,7 +493,7 @@ cultivating excellence
                                 <!-- Logo Header -->
                                 <tr>
                                     <td style="padding: 30px 40px; text-align: center; background-color: #ffffff;">
-                                        <img src="https://s3.ap-south-1.amazonaws.com/learnogic.com/static/logo.jpeg" alt="Learnogic" style="height: 50px; width: auto;">
+                                        <img src="https://learnogic.s3.ap-south-1.amazonaws.com/static/logo.jpeg" alt="Learnogic" style="height: 50px; width: auto;">
                                     </td>
                                 </tr>
                                 

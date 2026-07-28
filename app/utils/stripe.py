@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from decimal import Decimal
 import uuid
 import logging
+from datetime import datetime, timezone
 
 from app.models import User, Purchase, PurchaseItem, TutorProfile
 from app.config import settings
@@ -319,6 +320,8 @@ class StripeService:
                         logger.info(f"Tutor subscription completed for user {user_id}")
                         tutor = db.query(TutorProfile).filter(TutorProfile.user_id == int(user_id)).first()
                         if tutor:
+                            if not tutor.subscribed_at:
+                                tutor.subscribed_at = datetime.now(timezone.utc)
                             tutor.is_subscribed = True
                             tutor.stripe_subscription_id = session.get('subscription')
                             db.commit()
@@ -424,6 +427,8 @@ class StripeService:
                     tutor = db.query(TutorProfile).filter(TutorProfile.user_id == int(user_id)).first()
                     if tutor and not tutor.is_subscribed:
                         logger.info(f"Manual verification: Tutor subscription completed for user {user_id}")
+                        if not tutor.subscribed_at:
+                            tutor.subscribed_at = datetime.now(timezone.utc)
                         tutor.is_subscribed = True
                         tutor.stripe_subscription_id = session.get('subscription')
                         db.commit()
@@ -433,6 +438,63 @@ class StripeService:
             logger.error(f"Error verifying subscription: {str(e)}")
             return False
     
+    @staticmethod
+    async def get_subscription_details(db: Session, tutor) -> Dict[str, Any]:
+        """
+        Retrieve subscription billing details from Stripe.
+        Falls back to computing next billing date from subscribed_at if no Stripe sub ID.
+        """
+        result = {
+            "is_subscribed": tutor.is_subscribed,
+            "subscribed_at": tutor.subscribed_at,
+            "next_billing_date": None,
+            "amount": None,
+            "currency": None,
+        }
+
+        # --- Try Stripe first ---
+        if tutor.stripe_subscription_id and tutor.stripe_subscription_id != 'sub_manual':
+            try:
+                sub = stripe.Subscription.retrieve(tutor.stripe_subscription_id)
+                # Stripe Python SDK objects support both attribute and dict access
+                next_billing_ts = getattr(sub, 'current_period_end', None)
+                if next_billing_ts:
+                    result["next_billing_date"] = datetime.fromtimestamp(next_billing_ts, tz=timezone.utc)
+                # Grab amount and currency from the first subscription item
+                items_data = getattr(getattr(sub, 'items', None), 'data', [])
+                if items_data:
+                    price = getattr(items_data[0], 'price', None)
+                    if price:
+                        result["amount"] = getattr(price, 'unit_amount', None)
+                        result["currency"] = getattr(price, 'currency', None)
+            except Exception as e:
+                logger.warning(f"Could not retrieve Stripe subscription details: {str(e)}")
+
+        # --- Fallback: compute next billing date from subscribed_at ---
+        # Used when Stripe call failed or there is no stripe_subscription_id
+        if result["next_billing_date"] is None and tutor.subscribed_at:
+            try:
+                import calendar
+                now = datetime.now(timezone.utc)
+                sub_date = tutor.subscribed_at
+                if sub_date.tzinfo is None:
+                    sub_date = sub_date.replace(tzinfo=timezone.utc)
+                # Advance month by month (same day-of-month) until we get a future date
+                next_date = sub_date
+                while next_date <= now:
+                    month = next_date.month % 12 + 1
+                    year = next_date.year + (1 if next_date.month == 12 else 0)
+                    # Clamp day to the last valid day of the target month
+                    day = min(next_date.day, calendar.monthrange(year, month)[1])
+                    next_date = next_date.replace(year=year, month=month, day=day)
+                result["next_billing_date"] = next_date
+            except Exception as e:
+                logger.warning(f"Could not compute fallback next billing date: {str(e)}")
+
+        return result
+
+
+
     @staticmethod
     def get_supported_currencies() -> Dict[str, Dict]:
         """

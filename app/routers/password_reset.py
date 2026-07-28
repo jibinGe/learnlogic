@@ -96,7 +96,7 @@ cultivating excellence""",
                                             <table width="100%" cellpadding="0" cellspacing="0">
                                                 <tr>
                                                     <td>
-                                                        <img src="https://s3.ap-south-1.amazonaws.com/learnogic.com/static/logo.jpeg" alt="Learnogic Logo" style="height: 50px; display: block;">
+                                                        <img src="https://learnogic.s3.ap-south-1.amazonaws.com/static/logo.jpeg" alt="Learnogic Logo" style="height: 50px; display: block;">
                                                     </td>
                                                 </tr>
                                             </table>
@@ -235,7 +235,7 @@ cultivating excellence""",
                                 <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                                     <tr>
                                         <td style="padding: 30px 40px; background-color: #ffffff;">
-                                            <img src="https://s3.ap-south-1.amazonaws.com/learnogic.com/static/logo.jpeg" alt="Learnogic Logo" style="height: 50px; display: block;">
+                                            <img src="https://learnogic.s3.ap-south-1.amazonaws.com/static/logo.jpeg" alt="Learnogic Logo" style="height: 50px; display: block;">
                                         </td>
                                     </tr>
                                     <tr>

@@ -69,7 +69,7 @@ def register_tutor(tutor: schemas.TutorRegister, db: Session = Depends(get_db)):
 
 Thank you for registering with us.
 
-To get started, log in to your account and explore the various teacher CPDs, student events and resources we offer. Keep track of all your orders on your dashboard.
+To get started and be visible to parents and students in their search for your expertise, go to your dashboard, edit your profile and upgrade to Prime.
 
 For any further information, please do not hesitate to contact us.
 
@@ -95,7 +95,7 @@ cultivating excellence""",
                                             <table width="100%" cellpadding="0" cellspacing="0">
                                                 <tr>
                                                     <td>
-                                                        <img src="https://s3.ap-south-1.amazonaws.com/learnogic.com/static/logo.jpeg" alt="Learnogic Logo" style="height: 50px; display: block;">
+                                                        <img src="https://learnogic.s3.ap-south-1.amazonaws.com/static/logo.jpeg" alt="Learnogic Logo" style="height: 50px; display: block;">
                                                     </td>
                                                 </tr>
                                             </table>
@@ -109,8 +109,7 @@ cultivating excellence""",
                                             
                                             <p style="margin: 0 0 15px 0; font-size: 14px; color: #333333; line-height: 1.6;">Thank you for registering with us.</p>
                                             
-                                            <p style="margin: 0 0 15px 0; font-size: 14px; color: #333333; line-height: 1.6;">To get started, log in to your account and explore the various teacher CPDs, student events and resources we offer.</p>
-                                            <p style="margin: 0 0 15px 0; font-size: 14px; color: #333333; line-height: 1.6;">Keep track of all your orders on your dashboard.</p>
+                                            <p style="margin: 0 0 15px 0; font-size: 14px; color: #333333; line-height: 1.6;">To get started and be visible to parents and students in their search for your expertise, go to your dashboard, edit your profile and upgrade to Prime.</p>
                                             
                                             <p style="margin: 0 0 15px 0; font-size: 14px; color: #333333; line-height: 1.6;">For any further information, please do not hesitate to contact us.</p>
                                             
@@ -166,6 +165,7 @@ def get_tutor_profile(
         about_me=profile.about_me,
         avatar_url=profile.avatar_url,
         is_subscribed=profile.is_subscribed,
+        profile_impressions=profile.profile_impressions or 0,
         created_at=profile.created_at
     )
     return response
@@ -241,6 +241,7 @@ def list_tutors(
             about_me=p.about_me,
             avatar_url=p.avatar_url,
             is_subscribed=p.is_subscribed,
+            profile_impressions=p.profile_impressions or 0,
             created_at=p.created_at
         ))
         
@@ -251,3 +252,41 @@ def list_tutors(
         page_size=page_size,
         total_pages=math.ceil(total / page_size) if page_size else 0
     )
+
+
+# ── Impression Endpoints ──────────────────────────────────────────────────────
+
+@router.post("/impressions/{tutor_id}", status_code=status.HTTP_204_NO_CONTENT)
+def record_impression(tutor_id: int, db: Session = Depends(get_db)):
+    """
+    Public endpoint — called by the search page whenever a private
+    (non-subscribed) tutor card is rendered.  Increments profile_impressions.
+    """
+    profile = db.query(models.TutorProfile).filter(models.TutorProfile.id == tutor_id).first()
+    if not profile:
+        # Silently ignore — no 404 noise from client fire-and-forget calls
+        return
+    # Only count impressions for non-subscribed (private) profiles
+    if not profile.is_subscribed:
+        profile.profile_impressions = (profile.profile_impressions or 0) + 1
+        db.commit()
+
+
+@router.get("/me/impressions")
+def get_my_impressions(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    """
+    Auth-protected — returns the current tutor's impression count.
+    Only meaningful for non-subscribed tutors (dashboard bell widget).
+    """
+    if current_user.user_type != models.UserType.TUTOR:
+        raise HTTPException(status_code=403, detail="Not a tutor")
+
+    profile = db.query(models.TutorProfile).filter(models.TutorProfile.user_id == current_user.id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Tutor profile not found")
+
+    return {"profile_impressions": profile.profile_impressions or 0}
+

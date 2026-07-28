@@ -22,7 +22,8 @@ from app.schemas import (
     CurrencyInfo,
     TutorSubscriptionCheckoutRequest,
     TutorSubscriptionCheckoutResponse,
-    TutorSubscriptionCancelResponse
+    TutorSubscriptionCancelResponse,
+    TutorSubscriptionDetailsResponse
 )
 from app.utils.stripe import StripeService
 from app.utils.purchase_service import PurchaseService  # Assuming you have this
@@ -348,4 +349,33 @@ async def verify_tutor_subscription(
         return {"success": success}
     except Exception as e:
         logger.error(f"Error verifying subscription: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/tutor-subscription/details", response_model=TutorSubscriptionDetailsResponse)
+async def get_tutor_subscription_details(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get subscription billing details: when the tutor subscribed and when the next billing date is.
+    """
+    if current_user.user_type != "tutor":
+        raise HTTPException(status_code=403, detail="Only tutors can view subscription details.")
+
+    tutor = db.query(TutorProfile).filter(TutorProfile.user_id == current_user.id).first()
+    if not tutor:
+        raise HTTPException(status_code=404, detail="Tutor profile not found.")
+
+    # Backfill subscribed_at for existing subscribers who pre-date this column
+    if tutor.is_subscribed and not tutor.subscribed_at:
+        from datetime import datetime, timezone
+        # Use created_at as best approximation if no better info available
+        tutor.subscribed_at = tutor.created_at or datetime.now(timezone.utc)
+        db.commit()
+
+    try:
+        details = await StripeService.get_subscription_details(db, tutor)
+        return TutorSubscriptionDetailsResponse(**details)
+    except Exception as e:
+        logger.error(f"Error fetching subscription details: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

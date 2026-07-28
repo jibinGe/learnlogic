@@ -677,6 +677,7 @@ class TutorProfileResponse(BaseModel):
     about_me: str
     avatar_url: Optional[str] = None
     is_subscribed: bool = False
+    profile_impressions: int = 0
     created_at: Optional[datetime] = None
 
     class Config:
@@ -700,3 +701,10 @@ class TutorSubscriptionCheckoutResponse(BaseModel):
 class TutorSubscriptionCancelResponse(BaseModel):
     success: bool
     message: str
+
+class TutorSubscriptionDetailsResponse(BaseModel):
+    is_subscribed: bool
+    subscribed_at: Optional[datetime] = None
+    next_billing_date: Optional[datetime] = None
+    amount: Optional[int] = None  # in pence (e.g. 1999 = £19.99)
+    currency: Optional[str] = None
