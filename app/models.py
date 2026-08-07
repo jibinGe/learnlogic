@@ -68,6 +68,8 @@ class TutorProfile(Base):
     is_subscribed = Column(Boolean, default=False)
     stripe_subscription_id = Column(String, nullable=True)
     subscribed_at = Column(DateTime(timezone=True), nullable=True)
+    # End of the paid period after cancellation — tutor stays visible until this date
+    subscription_ends_at = Column(DateTime(timezone=True), nullable=True)
 
     # Impression counter — incremented when a visitor views a private (non-subscribed) profile card
     profile_impressions = Column(Integer, default=0, nullable=False, server_default="0")

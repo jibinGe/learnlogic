@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import desc, case
 from typing import List, Optional
 import math
+from datetime import datetime, timezone
 from .. import models, schemas, auth
 from ..database import get_db
 from ..utils.ses import SESService
@@ -135,6 +137,44 @@ cultivating excellence""",
 
     return {"message": "Tutor registered successfully"}
 
+@router.post("/me/presigned-url", response_model=schemas.PresignedUrlResponse)
+async def get_presigned_url_for_avatar(
+    request: schemas.PresignedUrlRequest,
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    """Generate presigned URL for uploading tutor avatar"""
+    if current_user.user_type != models.UserType.TUTOR:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to upload avatar"
+        )
+    
+    if not request.content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only image files are allowed for avatars"
+        )
+        
+    try:
+        from ..utils.s3 import S3Client
+        import uuid, time
+        s3_client = S3Client()
+        extension = request.filename.split(".")[-1] if "." in request.filename else "jpg"
+        object_key = f"tutors/{current_user.id}/avatar_{int(time.time())}_{uuid.uuid4().hex[:8]}.{extension}"
+        
+        presigned_data = s3_client.generate_presigned_url(
+            object_key=object_key,
+            content_type=request.content_type,
+            max_file_size=10 * 1024 * 1024  # 10MB
+        )
+        return schemas.PresignedUrlResponse(**presigned_data)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error generating presigned URL: {str(e)}"
+        )
+
+
 @router.get("/me", response_model=schemas.TutorProfileResponse)
 def get_tutor_profile(
     db: Session = Depends(get_db),
@@ -216,13 +256,41 @@ def list_tutors(
     page_size: int = 50,
     db: Session = Depends(get_db)
 ):
+    now = datetime.now(timezone.utc)
     query = db.query(models.TutorProfile).join(models.User)
-    
+
+    # Ordering rules (agreed product rule):
+    #   1. Prime (actively subscribed) tutors — top
+    #   2. Cancelled tutors still within their paid period (grace period) — middle
+    #   3. Non-subscribed / private profiles — bottom
+    #
+    # We use a CASE expression to assign a sort rank:
+    #   0 = active Prime subscriber
+    #   1 = in grace period (cancelled but subscription_ends_at is still in the future)
+    #   2 = no subscription
+    sort_rank = case(
+        (
+            models.TutorProfile.is_subscribed.is_(True),
+            0
+        ),
+        (
+            (models.TutorProfile.is_subscribed.is_(False)) &
+            (models.TutorProfile.subscription_ends_at != None) &
+            (models.TutorProfile.subscription_ends_at > now),
+            1
+        ),
+        else_=2
+    )
+    query = query.order_by(sort_rank)
+
     total = query.count()
     profiles = query.offset((page - 1) * page_size).limit(page_size).all()
     
     items = []
     for p in profiles:
+        # Determine if currently prime (active or in grace period)
+        is_prime = p.is_subscribed or (p.subscription_ends_at and p.subscription_ends_at > now)
+        
         items.append(schemas.TutorProfileResponse(
             id=p.id,
             user_id=p.user_id,

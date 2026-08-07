@@ -311,6 +311,10 @@ async def cancel_tutor_subscription(
 ):
     """
     Cancel an active tutor subscription.
+    The cancellation is scheduled for the END of the current billing period
+    (cancel_at_period_end=True) so the tutor remains visible in public searches
+    until their next billing date.  is_subscribed stays True here; the webhook
+    handler (customer.subscription.deleted) will flip it when the period ends.
     """
     if current_user.user_type != "tutor":
         raise HTTPException(status_code=403, detail="Only tutors can manage subscriptions.")
@@ -320,16 +324,36 @@ async def cancel_tutor_subscription(
         raise HTTPException(status_code=400, detail="No active subscription found.")
         
     try:
-        await StripeService.cancel_subscription(tutor.stripe_subscription_id)
-        
-        # We can proactively set it here, or wait for webhook. Better to set it here so it's instant.
-        tutor.is_subscribed = False
-        tutor.stripe_subscription_id = None
+        # Returns the period-end datetime from Stripe (or None for manual subs)
+        period_end = await StripeService.cancel_subscription(tutor.stripe_subscription_id)
+
+        # If Stripe didn't return a period end, compute a fallback from subscribed_at
+        # using the same monthly billing rollover logic as get_subscription_details.
+        if period_end is None and tutor.subscribed_at:
+            import calendar
+            from datetime import datetime, timezone
+            now = datetime.now(timezone.utc)
+            sub_date = tutor.subscribed_at
+            if sub_date.tzinfo is None:
+                sub_date = sub_date.replace(tzinfo=timezone.utc)
+            next_date = sub_date
+            while next_date <= now:
+                month = next_date.month % 12 + 1
+                year = next_date.year + (1 if next_date.month == 12 else 0)
+                day = min(next_date.day, calendar.monthrange(year, month)[1])
+                next_date = next_date.replace(year=year, month=month, day=day)
+            period_end = next_date
+
+        # Store the end date; keep is_subscribed=True so the tutor stays visible
+        tutor.subscription_ends_at = period_end
+        # DO NOT set tutor.is_subscribed = False here — the webhook handles that
+        # after the billing period actually ends.
         db.commit()
         
         return TutorSubscriptionCancelResponse(
             success=True,
-            message="Subscription cancelled successfully."
+            message="Subscription cancelled successfully. You will remain visible until your billing period ends.",
+            subscription_ends_at=period_end
         )
     except Exception as e:
         logger.error(f"Error cancelling tutor subscription: {str(e)}")

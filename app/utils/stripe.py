@@ -330,11 +330,12 @@ class StripeService:
                 subscription = event_data['data']['object']
                 sub_id = subscription.get('id')
                 if db and sub_id:
-                    logger.info(f"Subscription canceled: {sub_id}")
+                    logger.info(f"Subscription fully ended: {sub_id}")
                     tutor = db.query(TutorProfile).filter(TutorProfile.stripe_subscription_id == sub_id).first()
                     if tutor:
                         tutor.is_subscribed = False
                         tutor.stripe_subscription_id = None
+                        tutor.subscription_ends_at = None  # Period has now actually ended
                         db.commit()
 
             return True
@@ -393,20 +394,31 @@ class StripeService:
             raise PaymentException(f"Failed to create subscription checkout: {str(e)}")
 
     @staticmethod
-    async def cancel_subscription(subscription_id: str) -> bool:
+    async def cancel_subscription(subscription_id: str) -> Optional[datetime]:
         """
-        Cancel an active Stripe subscription
+        Mark an active Stripe subscription to cancel at the end of the current
+        billing period (cancel_at_period_end=True).  The subscription stays
+        active in Stripe until the period ends, so the tutor remains visible.
+
+        Returns the period-end datetime (UTC) so the caller can persist it,
+        or None for manually-managed subscriptions.
         """
         if subscription_id == 'sub_manual':
-            return True
-            
+            return None
+
         try:
-            stripe.Subscription.delete(subscription_id)
-            return True
+            updated = stripe.Subscription.modify(
+                subscription_id,
+                cancel_at_period_end=True
+            )
+            period_end_ts = getattr(updated, 'current_period_end', None)
+            if period_end_ts:
+                return datetime.fromtimestamp(period_end_ts, tz=timezone.utc)
+            return None
         except stripe.error.InvalidRequestError as e:
             if "No such subscription" in str(e):
-                logger.warning(f"Subscription {subscription_id} already deleted in Stripe.")
-                return True
+                logger.warning(f"Subscription {subscription_id} not found in Stripe — treating as already cancelled.")
+                return None
             logger.error(f"Stripe invalid request error cancelling subscription: {str(e)}")
             raise PaymentException(f"Failed to cancel subscription: {str(e)}")
         except stripe.error.StripeError as e:
@@ -443,6 +455,7 @@ class StripeService:
         """
         Retrieve subscription billing details from Stripe.
         Falls back to computing next billing date from subscribed_at if no Stripe sub ID.
+        Also detects pending cancellation via Stripe's cancel_at_period_end flag.
         """
         result = {
             "is_subscribed": tutor.is_subscribed,
@@ -450,6 +463,7 @@ class StripeService:
             "next_billing_date": None,
             "amount": None,
             "currency": None,
+            "subscription_ends_at": tutor.subscription_ends_at,
         }
 
         # --- Try Stripe first ---
@@ -467,8 +481,26 @@ class StripeService:
                     if price:
                         result["amount"] = getattr(price, 'unit_amount', None)
                         result["currency"] = getattr(price, 'currency', None)
+
+                # Detect pending cancellation: subscription is active but scheduled to end
+                # This handles the case where cancel was called but subscription_ends_at
+                # was not persisted (e.g. before the fallback logic was deployed).
+                cancel_at_period_end = getattr(sub, 'cancel_at_period_end', False)
+                if cancel_at_period_end and next_billing_ts:
+                    end_date = datetime.fromtimestamp(next_billing_ts, tz=timezone.utc)
+                    result["subscription_ends_at"] = end_date
+                    # Persist to DB if not already set so subsequent calls use cached value
+                    if not tutor.subscription_ends_at:
+                        tutor.subscription_ends_at = end_date
+                        db.commit()
+
             except Exception as e:
                 logger.warning(f"Could not retrieve Stripe subscription details: {str(e)}")
+
+        # --- Fallback for subscription_ends_at when DB is null but cancel was called ---
+        # If the DB still has no subscription_ends_at and next_billing_date was computed,
+        # check if tutor somehow has a pending cancel without a Stripe record.
+        # (No action needed here — the cancel endpoint now always persists a fallback date.)
 
         # --- Fallback: compute next billing date from subscribed_at ---
         # Used when Stripe call failed or there is no stripe_subscription_id
@@ -492,6 +524,7 @@ class StripeService:
                 logger.warning(f"Could not compute fallback next billing date: {str(e)}")
 
         return result
+
 
 
 

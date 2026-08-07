@@ -701,6 +701,7 @@ class TutorSubscriptionCheckoutResponse(BaseModel):
 class TutorSubscriptionCancelResponse(BaseModel):
     success: bool
     message: str
+    subscription_ends_at: Optional[datetime] = None  # End of paid period; tutor visible until this date
 
 class TutorSubscriptionDetailsResponse(BaseModel):
     is_subscribed: bool
@@ -708,3 +709,4 @@ class TutorSubscriptionDetailsResponse(BaseModel):
     next_billing_date: Optional[datetime] = None
     amount: Optional[int] = None  # in pence (e.g. 1999 = £19.99)
     currency: Optional[str] = None
+    subscription_ends_at: Optional[datetime] = None  # Set when cancelled but still within paid period
