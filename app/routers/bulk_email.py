@@ -34,7 +34,7 @@ ses_service = SESService()
 FROM_EMAIL   = "info@learnogic.com"
 LOGO_URL     = "https://learnogic.s3.ap-south-1.amazonaws.com/static/logo.jpeg"
 SUBJECT      = "Examiners as tutors, your edge."
-REGISTER_URL = "https://learnogic.com/register"
+REGISTER_URL = "https://learnogic.com/register-tutor/"
 # Base URL for the backend — used to build the unsubscribe link embedded in emails
 API_BASE_URL = "https://api.learnogic.com"
 
@@ -103,8 +103,9 @@ def build_html(name: str, link: str, unsubscribe_url: str) -> str:
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Learnogic - For Examiners</title>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>body,table,td,p,a,li,span{{font-family:'Montserrat',Arial,sans-serif!important;}}</style>
 </head>
-<body style="margin:0;padding:0;background-color:#f4f4f4;font-family:'Montserrat',sans-serif;">
+<body style="margin:0;padding:0;background-color:#f4f4f4;font-family:'Montserrat',Arial,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f4;padding:30px 0;">
     <tr>
       <td align="center">
@@ -121,7 +122,7 @@ def build_html(name: str, link: str, unsubscribe_url: str) -> str:
 
           <!-- Body -->
           <tr>
-            <td style="padding:30px 40px;color:#333333;font-size:14px;line-height:1.8;">
+            <td style="padding:30px 40px;color:#333333;font-size:14px;line-height:1.8;font-family:'Montserrat',Arial,sans-serif;">
 
               <p style="margin:0 0 16px 0;">
                 Dear <span>{name}</span>
@@ -190,15 +191,16 @@ def build_html(name: str, link: str, unsubscribe_url: str) -> str:
           <!-- Footer -->
           <tr>
             <td style="padding:20px 40px 30px 40px;border-top:1px solid #eeeeee;
-                       font-size:12px;color:#777777;line-height:1.8;">
+                       font-size:12px;color:#777777;line-height:1.8;font-family:'Montserrat',Arial,sans-serif;">
               <p style="margin:0;">
                 Learnogic Limited<br>
                 Registered address: 167-169 Great Portland Street, London, England, W1W 5PF<br>
                 Registered in England &amp; Wales | Company Registration No. 16130012
               </p>
               <p style="margin:16px 0 0 0;font-size:11px;color:#999999;">
-                If you prefer not to receive future communications from us,
-                <a href="{unsubscribe_url}" style="color:#999999;text-decoration:underline;">click here to unsubscribe</a>.
+                If you prefer not to receive future communications from us, click
+                <a href="{unsubscribe_url}" style="color:#999999;text-decoration:underline;">here</a>
+                to unsubscribe.
               </p>
             </td>
           </tr>

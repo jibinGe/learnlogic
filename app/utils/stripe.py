@@ -364,7 +364,7 @@ class StripeService:
                     'price_data': {
                         'currency': 'gbp',
                         'product_data': {
-                            'name': 'Upgrade to Prime',
+                            'name': 'Prime',
                             'description': 'Your subscription renews automatically unless cancelled.',
                         },
                         'unit_amount': 1999, # £19.99
