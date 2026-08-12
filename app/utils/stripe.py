@@ -365,7 +365,7 @@ class StripeService:
                         'currency': 'gbp',
                         'product_data': {
                             'name': 'Upgrade to Prime (£19.99/month)',
-                            'description': 'Monthly subscription to appear in the public tutor search.',
+                            'description': 'Your subscription renews automatically unless cancelled.',
                         },
                         'unit_amount': 1999, # £19.99
                         'recurring': {

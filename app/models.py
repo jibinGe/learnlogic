@@ -284,3 +284,12 @@ class ContactForm(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
 
+class EmailRecipient(Base):
+    __tablename__ = "email_recipients"
+
+    id         = Column(Integer, primary_key=True, index=True)
+    name       = Column(String, nullable=False)
+    email      = Column(String, unique=True, index=True, nullable=False)
+    is_active  = Column(Boolean, default=True)  # False = unsubscribed
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
