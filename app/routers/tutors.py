@@ -71,7 +71,7 @@ def register_tutor(tutor: schemas.TutorRegister, db: Session = Depends(get_db)):
 
 Thank you for registering with us.
 
-To get started and be visible to parents and students in their search for your expertise, go to your dashboard, edit your profile and upgrade to Prime.
+To get started and be visible to parents and students in their search for your expertise, go to your dashboard, edit your profile and subscribe to Prime.
 
 For any further information, please do not hesitate to contact us.
 
